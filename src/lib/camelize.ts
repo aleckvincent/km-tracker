@@ -1,12 +1,13 @@
-export function toCamelCase<T>(obj: any): any {
+export function toCamelCase<T>(obj: T): T {
   if (Array.isArray(obj)) {
-    return obj.map(toCamelCase);
-  } else if (obj !== null && obj.constructor === Object) {
-    return Object.keys(obj).reduce((acc, key) => {
+    return obj.map(item => toCamelCase(item)) as unknown as T;
+  } else if (obj !== null && typeof obj === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
       const camelKey = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-      acc[camelKey] = toCamelCase(obj[key]);
-      return acc;
-    }, {} as any);
+      result[camelKey] = toCamelCase(value);
+    }
+    return result as T;
   }
   return obj;
 }
