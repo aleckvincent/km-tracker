@@ -5,5 +5,6 @@ export type Trip = {
   origin: string
   destination: string
   distance_km: number
+  comment?: string
 }
 

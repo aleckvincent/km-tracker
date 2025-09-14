@@ -1,103 +1,198 @@
-import Image from "next/image";
+"use client"; // nécessaire pour useState, modale, etc.
 
-export default function Home() {
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { Trip } from "@/types/Types";
+import {sumTrips} from "@/utils/calculator";
+
+type TripsByMonth = Record<string, Trip[]>;
+
+export default function TrackerList() {
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [tripsByMonth, setTripsByMonth] = useState<TripsByMonth>({});
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    departure_date_time: "",
+    origin: "",
+    destination: "",
+    distance_km: "",
+    comment: ""
+  });
+
+  useEffect(() => {
+    fetchTrips();
+  }, []);
+
+  async function fetchTrips() {
+    setLoading(true);
+    const { data: trips, error } = await supabase
+      .from("trips")
+      .select("id, departure_date_time, origin, destination, distance_km")
+      .order("departure_date_time", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      setLoading(false);
+      return;
+    }
+
+    setTrips(trips);
+    setTripsByMonth(groupByMonth(trips));
+    setLoading(false);
+  }
+
+  function groupByMonth(trips: Trip[]) {
+    return trips.reduce((acc: TripsByMonth, trip) => {
+      const month = new Date(trip.departure_date_time).toLocaleString("default", {
+        month: "long",
+        year: "numeric",
+      });
+      if (!acc[month]) acc[month] = [];
+      acc[month].push(trip);
+      return acc;
+    }, {});
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const { departure_date_time, origin, destination, distance_km } = formData;
+    const { data, error } = await supabase.from("trips").insert([
+      {
+        departure_date_time: departure_date_time,
+        origin,
+        destination,
+        distance_km: parseFloat(distance_km),
+      },
+    ]);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setFormData({ departure_date_time: "", origin: "", destination: "", distance_km: "", comment: "" });
+    setIsModalOpen(false);
+    await fetchTrips(); // refresh
+  }
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-gray-50 p-6 sm:p-12 relative">
+      <header className="mb-8 text-center">
+        <h1 className="text-3xl font-bold text-gray-800">Mes déplacements</h1>
+        <p className="text-gray-500 mt-2">Liste regroupée par mois</p>
+      </header>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+      <main className="space-y-10">
+        {loading ? (
+          <p>Loading...</p>
+        ) : (
+          Object.entries(tripsByMonth).map(([month, monthTrips]) => (
+            <section key={month}>
+              <h2 className="text-2xl font-semibold text-gray-700">{month} </h2>
+              <div className="gap-3 mb-3">
+                <p>Nombre de km : <strong>{sumTrips(monthTrips)}</strong></p>
+              </div>
+
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {monthTrips.map((trip) => (
+                  <div
+                    key={trip.id}
+                    className="bg-white rounded-2xl shadow-md p-6 hover:shadow-xl transition-shadow duration-300"
+                  >
+                    <h3 className="text-lg font-medium text-gray-700 mb-2">
+                      {trip.origin} → {trip.destination}
+                    </h3>
+                    <p className="text-gray-500 mb-2">
+                      {new Date(trip.departure_date_time).toLocaleDateString(undefined, {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                    <p className="text-gray-600 font-medium">{trip.distance_km} km</p>
+                    <p>Note : {trip.comment}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))
+        )}
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+      {/* Bouton + */}
+      <button
+        onClick={() => setIsModalOpen(true)}
+        className="fixed bottom-8 right-8 bg-blue-500 text-white w-16 h-16 rounded-full text-3xl shadow-lg hover:bg-blue-600 transition-colors flex items-center justify-center"
+      >
+        +
+      </button>
+
+      {/* Modale */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-11/12 max-w-md relative">
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl"
+            >
+              &times;
+            </button>
+            <h2 className="text-xl font-bold mb-4">Ajouter un déplacement</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input
+                type="datetime-local"
+                value={formData.departure_date_time}
+                onChange={(e) => setFormData({ ...formData, departure_date_time: e.target.value })}
+                className="w-full p-2 border rounded"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Origine"
+                value={formData.origin}
+                onChange={(e) => setFormData({ ...formData, origin: e.target.value })}
+                className="w-full p-2 border rounded"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Destination"
+                value={formData.destination}
+                onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
+                className="w-full p-2 border rounded"
+                required
+              />
+              <input
+                type="number"
+                placeholder="Distance (km)"
+                step="0.01"
+                value={formData.distance_km}
+                onChange={(e) => setFormData({ ...formData, distance_km: e.target.value })}
+                className="w-full p-2 border rounded"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Commentaire"
+                value={formData.comment}
+                onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
+                className="w-full p-2 border rounded"
+                required
+              />
+              <button
+                type="submit"
+                className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition-colors"
+              >
+                Ajouter
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

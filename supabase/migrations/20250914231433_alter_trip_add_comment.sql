@@ -1,0 +1,2 @@
+ALTER TABLE trips
+  ADD COLUMN comment VARCHAR(255);
