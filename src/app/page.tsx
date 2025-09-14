@@ -28,7 +28,7 @@ export default function TrackerList() {
     setLoading(true);
     const { data: trips, error } = await supabase
       .from("trips")
-      .select("id, departure_date_time, origin, destination, distance_km")
+      .select("id, departure_date_time, origin, destination, distance_km, comment")
       .order("departure_date_time", { ascending: false });
 
     if (error) {
@@ -56,13 +56,14 @@ export default function TrackerList() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const { departure_date_time, origin, destination, distance_km } = formData;
+    const { departure_date_time, origin, destination, distance_km, comment } = formData;
     const { data, error } = await supabase.from("trips").insert([
       {
         departure_date_time: departure_date_time,
         origin,
         destination,
         distance_km: parseFloat(distance_km),
+        comment: comment,
       },
     ]);
 
@@ -181,7 +182,6 @@ export default function TrackerList() {
                 value={formData.comment}
                 onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
                 className="w-full p-2 border rounded"
-                required
               />
               <button
                 type="submit"
