@@ -1,9 +1,9 @@
 export type Trip = {
   id: number
-  createdAt: string
-  departureDateTime: string
+  created_at?: string
+  departure_date_time: string
   origin: string
   destination: string
-  distanceKm: number
+  distance_km: number
 }
 

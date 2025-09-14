@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Trip } from "@/types/Types";
-import { toCamelCase } from "@/lib/camelize";
 
 type TripsByMonth = Record<string, Trip[]>;
 
@@ -13,10 +12,10 @@ export default function TrackerList() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
-    departureDateTime: "",
+    departure_date_time: "",
     origin: "",
     destination: "",
-    distanceKm: "",
+    distance_km: "",
   });
 
   useEffect(() => {
@@ -25,7 +24,7 @@ export default function TrackerList() {
 
   async function fetchTrips() {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data: trips, error } = await supabase
       .from("trips")
       .select("id, departure_date_time, origin, destination, distance_km")
       .order("departure_date_time", { ascending: false });
@@ -36,15 +35,14 @@ export default function TrackerList() {
       return;
     }
 
-    const tripsData: Trip[] = toCamelCase<Trip[]>(data);
-    setTrips(tripsData);
-    setTripsByMonth(groupByMonth(tripsData));
+    setTrips(trips);
+    setTripsByMonth(groupByMonth(trips));
     setLoading(false);
   }
 
   function groupByMonth(trips: Trip[]) {
     return trips.reduce((acc: TripsByMonth, trip) => {
-      const month = new Date(trip.departureDateTime).toLocaleString("default", {
+      const month = new Date(trip.departure_date_time).toLocaleString("default", {
         month: "long",
         year: "numeric",
       });
@@ -56,13 +54,13 @@ export default function TrackerList() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const { departureDateTime, origin, destination, distanceKm } = formData;
+    const { departure_date_time, origin, destination, distance_km } = formData;
     const { data, error } = await supabase.from("trips").insert([
       {
-        departure_date_time: departureDateTime,
+        departure_date_time: departure_date_time,
         origin,
         destination,
-        distance_km: parseFloat(distanceKm),
+        distance_km: parseFloat(distance_km),
       },
     ]);
 
@@ -71,7 +69,7 @@ export default function TrackerList() {
       return;
     }
 
-    setFormData({ departureDateTime: "", origin: "", destination: "", distanceKm: "" });
+    setFormData({ departure_date_time: "", origin: "", destination: "", distance_km: "" });
     setIsModalOpen(false);
     fetchTrips(); // refresh
   }
@@ -100,7 +98,7 @@ export default function TrackerList() {
                       {trip.origin} → {trip.destination}
                     </h3>
                     <p className="text-gray-500 mb-2">
-                      {new Date(trip.departureDateTime).toLocaleDateString(undefined, {
+                      {new Date(trip.departure_date_time).toLocaleDateString(undefined, {
                         weekday: "short",
                         day: "numeric",
                         month: "short",
@@ -109,7 +107,7 @@ export default function TrackerList() {
                         minute: "2-digit",
                       })}
                     </p>
-                    <p className="text-gray-600 font-medium">{trip.distanceKm} km</p>
+                    <p className="text-gray-600 font-medium">{trip.distance_km} km</p>
                   </div>
                 ))}
               </div>
@@ -140,8 +138,8 @@ export default function TrackerList() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <input
                 type="datetime-local"
-                value={formData.departureDateTime}
-                onChange={(e) => setFormData({ ...formData, departureDateTime: e.target.value })}
+                value={formData.departure_date_time}
+                onChange={(e) => setFormData({ ...formData, departure_date_time: e.target.value })}
                 className="w-full p-2 border rounded"
                 required
               />
@@ -165,8 +163,8 @@ export default function TrackerList() {
                 type="number"
                 placeholder="Distance (km)"
                 step="0.01"
-                value={formData.distanceKm}
-                onChange={(e) => setFormData({ ...formData, distanceKm: e.target.value })}
+                value={formData.distance_km}
+                onChange={(e) => setFormData({ ...formData, distance_km: e.target.value })}
                 className="w-full p-2 border rounded"
                 required
               />
