@@ -7,5 +7,5 @@ export function sumTrips(trips: Trip[]): number {
     sum += trip.distance_km
   })
 
-  return sum
+  return Math.round(sum)
 }
